@@ -1,0 +1,171 @@
+---
+title: 'IECD 2C2023: Entrega 1'
+author: "Nicolás Álvarez, Guido Freire"
+date: "2023-09-06"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Estimación No Paramétrica de la densidad: elección de la ventana
+
+## Selección de ventana $h$ por convalidación cruzada "deje-uno-afuera"
+
+**1, 2, 3, 4.** Nuestra implementación de `bw.loocv` almacena $\hat f_h^{(-i)}(x_i)$ en una matriz `f[i, h]`. Además, recibe el kernel como parámetro opcional `K`, que más adelante nos permite graficar los loglikes para los núcleos Epanechnikov y uniforme.
+
+```{r}
+bw.loocv = function(x, grilla.h = NA, K = dnorm) {
+  n <- length(x)
+  if (any(is.na(grilla.h))) {
+    silverman <- bw.nrd0(x)
+    grilla.h <- seq(silverman * 10^(-2), silverman * 10^2, length.out = 100)
+  }
+  f = matrix(NA, n, length(grilla.h))
+  for (i in 1:n) {
+    for (h in 1:length(grilla.h)) {
+      f[i, h] = sum(K((x[i] - x) / grilla.h[h]))
+      f[i,h] <- f[i,h] - K(0)
+      f[i,h] <- f[i,h] /  ((n-1)*grilla.h[h])
+    }
+  }
+  loglikes = colMeans(log(f))
+  return(list("h.CV" = grilla.h[which.max(loglikes)], "grilla.h" = grilla.h, "loglikes" = loglikes))
+}
+```
+
+Cargamos los loglikes de cada kernel en un dataframe `data`
+
+```{r}
+x = read.table("entrega1.txt")[[1]]
+
+unigauss = bw.loocv(x, seq(0.1, 1, 0.01))
+epanechnikov = bw.loocv(x, seq(0.1, 1, 0.01), function(y) ifelse(abs(y) <= 1, 3/4*(1-y^2), 0))
+uniforme = bw.loocv(x, seq(0.1, 1, 0.01), function(y) ifelse(abs(y) <= 1, 1/2, 0))
+
+data <- data.frame(grilla = unigauss$grilla.h,
+                   gauss = unigauss$loglikes,
+                   epanechnikov = epanechnikov$loglikes,
+                   uniforme = uniforme$loglikes)
+colnames(data) <- c('grilla', 'gauss', 'epanechnikov', 'uniforme')
+head(data)
+```
+
+Como es logaritmico, tiene sentido que hayan entradas `-Inf` para algunos valores de $h$ pequeños, en los núcleos menos suaves.
+
+**5a.**
+
+```{r}
+library("ggplot2")
+ggplot(data) + geom_point(aes(grilla, gauss)) +
+  geom_vline(aes(xintercept = unigauss$h.CV), color = 'red') +
+  geom_vline(aes(xintercept = bw.nrd0(x))) +
+  geom_vline(aes(xintercept = bw.SJ(x))) +
+  geom_vline(aes(xintercept = bw.ucv(x))) + labs(x = 'h', y = 'loglikes') +
+  annotate("text", x=unigauss$h.CV+0.015, y=-1.85, label="loocv", angle=90, color = 'red', hjust=0) +
+  annotate("text", x=bw.nrd0(x)-0.015, y=-1.85, label="Silverman", angle=90, hjust=0) +
+  annotate("text", x=bw.SJ(x)-0.015, y=-1.85, label="Sheather & Jones", angle=90, hjust=0) +
+  annotate("text", x=bw.ucv(x)-0.015, y=-1.85, label="VC", angle=90, hjust=0) +
+  ggtitle("Loglikes de estimador Gaussiano")
+```
+
+
+Aprovechamos que el kernel es un parámetro para graficar loglikes de cada estimador de núcleo.
+
+```{r}
+ggplot(data) + geom_point(aes(grilla, gauss, color = 'Gauss')) +
+  geom_point(aes(grilla, epanechnikov, color = 'Epanechnikov')) +
+  geom_point(aes(grilla, uniforme, color = 'Uniforme')) +
+  labs(color='núcleo', x) + ylab("loglikes") + xlab("h") + ggtitle("Loglikes por núcleo")
+```
+
+**5b**
+
+nos guardamos cada $h$ y armamos la función de densidad para pasarle a `geom_function` y para cada ventana graficamos:
+
+```{r}
+h_loocv = unigauss[[1]]
+h_nrd0 = bw.nrd0(x)
+h_SJ = bw.SJ(x)
+h_ucv = bw.ucv(x)
+
+f_h <- function(y, h) {
+  suma <- 0
+  for (xi in x) {
+    suma <- suma + dnorm((y - xi) / h)
+  }
+  return(suma/length(x)*h)
+}
+
+ggplot() +
+  geom_function(fun = function(x) return(f_h(x, h_loocv)), aes(color = 'loocv')) +
+  geom_function(fun = function(x) return(f_h(x, h_nrd0)), aes(color = 'nrd0')) +
+  geom_function(fun = function(x) return(f_h(x, h_SJ)), aes(color = 'SJ')) +
+  geom_function(fun = function(x) return(f_h(x, h_ucv)), aes(color = 'ucv')) +
+  xlim(-3.5,6) + labs(color='h', x) + xlab("x") + ylab("f_h(x)") + ggtitle("Densidades por ventana")
+  
+```
+
+
+## BONUS: Regla de un error estándar
+
+**6.** Declaramos una `bw.loocv_se`, que funciona como la anterior, nada mas que guarda en `SEh.cv` el $SE(\hat l_{h.CV})$ y en `h.nSE` el máximo $h$ que queda por encima de la cantidad de errores estándar.
+
+```{r}
+bw.loocv_se = function(x, grilla.h = NA,n.se, K = dnorm) {
+  n <- length(x)
+  if (any(is.na(grilla.h))) {
+    silverman <- bw.nrd0(x)
+    grilla.h <- seq(silverman * 10^(-2), silverman * 10^2, length.out = 100)
+  }
+  f = matrix(NA, n, length(grilla.h))
+  for (i in 1:n) {
+    for (h in 1:length(grilla.h)) {
+    f[i, h] = sum(K((x[i] - x) / grilla.h[h]))
+    f[i,h] <- f[i,h] - K(0)
+    f[i,h] <- f[i,h] /  ((n-1)*grilla.h[h])
+    }
+  }
+  loglikes = colMeans(log(f))
+  h.CV <- grilla.h[which.max(loglikes)]
+  loglikes.se <- apply(f, 2, sd)
+  SEh.cv <- loglikes.se[which.max(loglikes)]
+  h.nSE <- NA
+  for (i in 1:length(grilla.h)) {
+    bool <- loglikes[length(grilla.h)+1-i] >= max(loglikes) - n.se*SEh.cv/sqrt(n)
+    if (bool) {
+      h.nSE <- grilla.h[length(grilla.h)+1-i]
+      break
+    } 
+  }
+  return(list("h.CV" = h.CV, "grilla.h" = grilla.h, "loglikes" = loglikes, "loglikes.se" = loglikes.se, "h.nSE" = h.nSE, "SEh.cv" = SEh.cv))
+}
+```
+
+Repetimos el primer gráfico pero con las líneas horizontales de desvio estándar
+
+```{r}
+unigaussSE0 <- bw.loocv_se(x, seq(0.1, 1, 0.01), 0)
+unigaussSE1 <- bw.loocv_se(x, seq(0.1, 1, 0.01), 1)
+unigaussSE2 <- bw.loocv_se(x, seq(0.1, 1, 0.01), 2)
+
+SE0 <- unigaussSE0$loglikes[which(unigaussSE0$grilla.h == unigaussSE0$h.CV)]
+SE1 <- unigaussSE1$loglikes[which(unigaussSE1$grilla.h == unigaussSE1$h.CV)]  - unigaussSE1$SEh.cv/sqrt(length(x))
+SE2 <- unigaussSE2$loglikes[which(unigaussSE2$grilla.h == unigaussSE2$h.CV)]  - 2*unigaussSE2$SEh.cv/sqrt(length(x))
+
+ggplot(data) + geom_point(aes(grilla, gauss, color = grilla == unigaussSE0$h.nSE | grilla == unigaussSE1$h.nSE | grilla == unigaussSE2$h.nSE)) +
+  geom_hline(aes(yintercept = SE0)) +
+  geom_hline(aes(yintercept = SE1)) +
+  geom_hline(aes(yintercept = SE2)) +
+  annotate("text", x=0.8, y=SE0 + 0.002, label="0 sd", hjust=0) +
+  annotate("text", x=0.8, y=SE1 + 0.002, label="1 sd", hjust=0) +
+  annotate("text", x=0.8, y=SE2 + 0.002, label="2 sd", hjust=0) +
+  theme(legend.position = "none") + ggtitle("Loglikes de Gaussiano con desvíos estandar") + ylab("loglikes")
+```
+
+Claramente a desvío 0 del máximo esta el máximo, en verde marcamos los $h.nSE$ con $n \in \{0, 1, 2\}$ y en negro las "bandas" de desvío
+
+*Referencia: [notas de Tibshirani](https://www.stat.cmu.edu/~ryantibs/datamining/lectures/19-val2-marked.pdf)*
