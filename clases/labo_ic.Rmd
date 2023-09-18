@@ -1,0 +1,35 @@
+---
+title: "labo-intconfianza"
+output: html_document
+date: "2023-09-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+n <- 5
+u <- 4
+de <- 3
+```
+
+$$\sqrt n\frac{X - \mu}{\sigma} \sim \mathcal{N}(0, 1)\\
+P(-z_{\alpha/2} \leq \sqrt n\frac{X - \mu}{\sigma} \leq z_{-\alpha/2}) = P(-z_{\alpha/2}\frac{\sqrt n}{\sigma} \leq -\mu \leq z_{-\alpha/2}\frac{\sqrt n}{\sigma}) 1-\alpha$$
+
+```{r}
+ICu <- function(x, de = NA, a) {
+  if (is.na(de)) {
+    de <- sd(x)
+    cuant <- qt(a/2, n-1)
+  } else {
+    cuant <- qnorm(a/2, de)
+  }
+  medn <- mean(x)
+  sqrtn <- sqrt(length(x))
+  return(c('inf' = medn - cuant * de/sqrtn, 'sup' = medn + cuant * de/sqrtn))
+}
+
+intervalos <- replicate(1000, ICu(rnorm(n, u, de), de, 0.95))
+intervalos_de <- replicate(1000, ICu(rnorm(n, u, de), a = 0.95))
+```
