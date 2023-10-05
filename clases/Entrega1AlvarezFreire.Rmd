@@ -1,7 +1,7 @@
 ---
 title: 'IECD 2C2023: Entrega 1'
 author: "Nicolás Álvarez, Guido Freire"
-date: "2023-09-06"
+date: "2023-10-05"
 output:
   html_document: default
   pdf_document: default
@@ -9,6 +9,17 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+muestra <- function(seed, n=200) {
+  set.seed(1234)
+  binoms <- rbinom(n, size=1, p=0.75)
+  return (
+    binoms * rnorm(n, mean=0, sd=1)
+    + (1 - binoms) * rnorm(n, mean=3.25, sd=sqrt(0.5))
+  )
+}
 ```
 
 # Estimación No Paramétrica de la densidad: elección de la ventana
@@ -40,7 +51,7 @@ bw.loocv = function(x, grilla.h = NA, K = dnorm) {
 Cargamos los loglikes de cada kernel en un dataframe `data`
 
 ```{r}
-x = read.table("entrega1.txt")[[1]]
+x = muestra(1234)
 
 unigauss = bw.loocv(x, seq(0.1, 1, 0.01))
 epanechnikov = bw.loocv(x, seq(0.1, 1, 0.01), function(y) ifelse(abs(y) <= 1, 3/4*(1-y^2), 0))
@@ -72,7 +83,6 @@ ggplot(data) + geom_point(aes(grilla, gauss)) +
   ggtitle("Loglikes de estimador Gaussiano")
 ```
 
-
 Aprovechamos que el kernel es un parámetro para graficar loglikes de cada estimador de núcleo.
 
 ```{r}
@@ -97,8 +107,11 @@ f_h <- function(y, h) {
   for (xi in x) {
     suma <- suma + dnorm((y - xi) / h)
   }
-  return(suma/length(x)*h)
+  return(suma/(length(x)*h))
 }
+
+# f_h <- function(y, h) return(sum(dnorm((y-x)/h))/(length(x)*h))
+# es mucho mas lindo pero ggplot no comulga
 
 ggplot() +
   geom_function(fun = function(x) return(f_h(x, h_loocv)), aes(color = 'loocv')) +
@@ -106,7 +119,6 @@ ggplot() +
   geom_function(fun = function(x) return(f_h(x, h_SJ)), aes(color = 'SJ')) +
   geom_function(fun = function(x) return(f_h(x, h_ucv)), aes(color = 'ucv')) +
   xlim(-3.5,6) + labs(color='h', x) + xlab("x") + ylab("f_h(x)") + ggtitle("Densidades por ventana")
-  
 ```
 
 
@@ -166,6 +178,6 @@ ggplot(data) + geom_point(aes(grilla, gauss, color = grilla == unigaussSE0$h.nSE
   theme(legend.position = "none") + ggtitle("Loglikes de Gaussiano con desvíos estandar") + ylab("loglikes")
 ```
 
-Claramente a desvío 0 del máximo esta el máximo, en verde marcamos los $h.nSE$ con $n \in \{0, 1, 2\}$ y en negro las "bandas" de desvío
+Claramente a desvío 0 del máximo esta el máximo, en verde marcamos los $h.nSE$ con $n \in \{0, 1, 2\}$ y en negro las "bandas" de desvío. Respectivamente `r unigaussSE0$h.nSE`, `r unigaussSE1$h.nSE` y `r unigaussSE2$h.nSE`.
 
 *Referencia: [notas de Tibshirani](https://www.stat.cmu.edu/~ryantibs/datamining/lectures/19-val2-marked.pdf)*
