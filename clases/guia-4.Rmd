@@ -22,20 +22,35 @@ lambda_1
 lambda_2
 ```
 
-Bootstrapeo y grafico
+Bootstrapeo paramétrico y grafico
 
 ```{r}
-strap_1 <- replicate(1000, rpois(15, T1(lambda_1)))
-strap_2 <- replicate(1000, rpois(15, T1(lambda_2)))
+set.seed(2023)
+strap_p1 <- replicate(1000, T1(rpois(15, lambda_1)))
+strap_p2 <- replicate(1000, T2(rpois(15, lambda_2)))
 
-hist(strap_1)
-hist(strap_2)
+hist(strap_p1)
+hist(strap_p2)
 ```
 
 Estimo varianza
 
 ```{r}
-sd(strap_1)^2
-sd(strap_2)^2
+sd(strap_p1)
+sd(strap_p2)
 ```
 
+Repito para bootstrap no paramétrico
+
+```{r}
+set.seed(2023)
+strap_n1 <- replicate(1000, T1(sample(muestra, 10)))
+strap_n2 <- replicate(1000, T2(sample(muestra, 10)))
+
+hist(strap_n1)
+hist(strap_n2)
+```
+
+```{r}
+
+```
