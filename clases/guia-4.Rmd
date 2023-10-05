@@ -1,0 +1,41 @@
+---
+title: "guia4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ej. 2
+
+Implemento los estimadores
+
+```{r}
+muestra <- c(500, 488, 426, 510, 450, 368, 508, 514, 426, 476, 512, 526, 444, 524, 236)
+T1 <- function(x) return(mean(x))
+T2 <- function(x) return((-1+sqrt(1+4*mean(x^2)))/2)
+
+lambda_1 <- T1(muestra)
+lambda_2 <- T2(muestra)
+lambda_1
+lambda_2
+```
+
+Bootstrapeo y grafico
+
+```{r}
+strap_1 <- replicate(1000, rpois(15, T1(lambda_1)))
+strap_2 <- replicate(1000, rpois(15, T1(lambda_2)))
+
+hist(strap_1)
+hist(strap_2)
+```
+
+Estimo varianza
+
+```{r}
+sd(strap_1)^2
+sd(strap_2)^2
+```
+
