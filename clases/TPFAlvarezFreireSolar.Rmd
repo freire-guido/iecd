@@ -4,27 +4,48 @@ author: "Álvarez Nicolás, Freire Guido, Solar Facundo"
 date: "2023-12-08"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r}
+library(tidyverse)
+library(readxl)
+library(caret)
 ```
 
-## R Markdown
+```{r}
+df <- read_excel('body.xls', col_names = FALSE)
+colnames(df)<-(c("BIAC","BIIL","BITRO","CHEST1","CHEST2","ELBOW","WRIST", "KNEE","ANKLE","SHOUL","CHESTG",
+                 "WAISTG","NAVEL","HIP","GLUTE","BICEP", "FLOREA","KNEEG","CALF","ANKLEG","WRISTG","AGE",
+                 "WEIG","HEIG","GEN"))
+any(is.na(df))
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+df %>% group_by(GEN) %>% summarise(median(WEIG)) -> medianas
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+df %>% filter(GEN == 0) %>% select(WEIG) -> weig_0
+df %>% filter(GEN == 1) %>% select(WEIG) -> weig_1
 
-```{r cars}
-summary(cars)
+weig_0 <- as.vector(weig_0$WEIG)
+weig_1 <- as.vector(weig_1$WEIG)
+
+B = 5000
+
+estmed_0 <- replicate(B, median(sample(weig_0, length(weig_0), replace = TRUE)))
+sdHat_0 <- sqrt(mean((estmed_0 - mean(estmed_0))^2))
+
+
+estmed_1 <- replicate(B, median(sample(weig_1, length(weig_1), replace = TRUE)))
+sdHat_1 <- sqrt(mean((estmed_1 - mean(estmed_1))^2))
+
+### Intervalos de confianza para la mediana 0 y 1, usando el TCL, de nivel 0.95
+
+intervalo1_boot_0 <- c(median(weig_0) - 1.96*sdHat_0, median(weig_0) + 1.96*sdHat_0)
+intervalo1_boot_1 <- c(median(weig_1) - 1.96*sdHat_1, median(weig_1) + 1.96*sdHat_1)
+
+### Intervalos de confianza para la mediana 0 y 1, usando el metodo bootstrap percentil, de nievl 0.95
+
+intervalo2_boot_0 <- c(quantile(estmed_0, 0.025), quantile(estmed_0, 0.975))
+intervalo2_boot_1 <- c(quantile(estmed_1, 0.025), quantile(estmed_1, 0.975))
+
+### Grafico posible para el 2
+
+colores <- c('red', 'blue')
+plot(df$HEIG,df$WEIG, col = colores[as.factor(df$GEN)], pch = 16)
 ```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
