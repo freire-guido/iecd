@@ -92,4 +92,52 @@ df_GEN %>%
   ggplot(aes(WEIG, HEIG)) + geom_point(aes(color = GEN), alpha = 0.2) + geom_line(data = regnopar, aes(x, y, color = GEN)) + labs(title = "Regresión Nadaraya-Watson", subtitle = "bandwidth = 10")
 ```
 
+### (e)
+
+Adaptamos la función del TP1, de paso la hacemos compatible con tidyr
+
+```{r}
+bw.loocv = function(df, x, y, grilla.h = NA, K = dnorm) {
+  x <- df %>% pull({{x}})
+  y <- df %>% pull({{y}})
+  n <- length(x)
+  if (any(is.na(grilla.h))) {
+    silverman <- bw.nrd0(x)
+    grilla.h <- seq(silverman * 10^(-2), silverman * 10^2, length.out = 100)
+  }
+  f <- matrix(NA, n, length(grilla.h))
+  for (i in 1:n) {
+    for (h in 1:length(grilla.h)) {
+      f[i, h] <- sum(y%*%K((x[i] - x)/grilla.h[h]))
+      f[i, h] <- f[i,h] - y[i] * K(0)
+      f[i, h] <- f[i, h] / (sum(K((x[i] - x)/grilla.h[h])) - K(0))
+    }
+  }
+  loglikes = colMeans(log(f))
+  return(list("h.CV" = grilla.h[which.max(loglikes)], "grilla.h" = grilla.h, "loglikes" = loglikes))
+}
+```
+
+El output es bastante idiomático.
+
+```{r}
+grilla <- seq(0, 20, by = 0.5)
+df %>% filter(GEN == 0) %>% bw.loocv(WEIG, HEIG, grilla)
+```
+
+Ploteamos:
+
+```{r}
+df_GEN %>%
+  do(bw.loocv(., WEIG, HEIG, grilla) %>% as.data.frame()) %>%
+  ggplot(aes(grilla.h, loglikes)) + geom_point(aes(color = GEN))
+```
+
+No se ve la curvatura porque tienen valores muy distintos, pero podemos hacer dos graficos distintos
+
+```{r}
+df_GEN %>%
+  do(bw.loocv(., WEIG, HEIG, grilla) %>% as.data.frame()) %>%
+  ggplot(aes(grilla.h, loglikes)) + geom_point(aes(color = GEN)) + facet_grid(rows = vars(GEN), scales = "free_y")
+```
 
