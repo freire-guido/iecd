@@ -29,6 +29,8 @@ colSums(is.na(df))
 
 No hay NAs en ninguna columna de `df` .
 
+## Etapa exploratoria
+
 ### (b)
 
 Agarramos los WEIG según GEN y guardamos en `weig_0` y `weig_1`, exploramos.
@@ -45,13 +47,6 @@ df %>% ggplot(aes(GEN, WEIG)) + geom_boxplot()
 ```
 
 
-
-```{r}
-df_GEN %>%
-  summarise(WEIGHT = median(WEIG), s = sd(WEIG)) %>%
-  ggplot(aes(GEN, WEIGHT, s, ymin = WEIGHT-s, ymax = WEIGHT+s)) + geom_linerange() + geom_point(aes(fill = "mediana")) + labs(title = "Intervalos de confianza usando TCL", subtitle = "nivel = 0.95") + scale_fill_discrete(name = "")
-```
-
 Implementamos un bootstrap no-paramétrico
 
 ```{r}
@@ -67,6 +62,13 @@ Bootstrapeamos y graficamos los intervalos:
 
 ```{r}
 B = 5000
+df_GEN %>%
+  summarise(WEIGHT = median(WEIG), s = (length(WEIG)-1)*sd(bootstrap(B, WEIG, median))/length(WEIG)) %>%
+  ggplot(aes(GEN, WEIGHT, s, ymin = WEIGHT-s, ymax = WEIGHT+s)) + geom_linerange() + geom_point(aes(fill = "mediana")) + labs(title = "Intervalos de confianza con bootstrap uniforme", subtitle = "nivel = 0.95") + scale_fill_discrete(name = "")
+```
+
+
+```{r}
 df_GEN %>% 
   summarise(WEIGHT = median(WEIG), a = quantile(bootstrap(B, WEIG, median), 0.025), b = quantile(bootstrap(B, WEIG, median), 0.975)) %>%
   ggplot(aes(GEN, WEIGHT, ymin = a, ymax = b)) + geom_linerange() + geom_point(aes(fill = "mediana")) + labs(title = "Intervalos de confianza bootstrapeados", subtitle = "percentil = 0.95") + scale_fill_discrete(name = "")
