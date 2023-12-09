@@ -183,7 +183,30 @@ df_GEN %>%
 ## Regresión lineal
 ### (g)
 
+Separamos el df en train y test.
+
 ```{r}
-df
+train <- as.vector(read.table('TrainTest')$V1)
+df_train <- df[train,]
+df_test <- df[!train,]
+
+print(c('train' = nrow(df_train), 'test' = nrow(df_test)))
 ```
+
+```{r}
+lmtodos <- lm(WEIG ~ ., df_train)
+summary(lmtodos)
+```
+
+```{r}
+df$GEN <- as.numeric(df$GEN)
+heatmap(cor(df))
+```
+Calculamos el error de predicción empírico para el conjunto de testeo.
+
+```{r}
+sum((predict(lmtodos, df_test) - df_test$WEIG)^2)
+```
+
+### (h)
 
