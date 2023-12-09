@@ -71,7 +71,7 @@ df_GEN %>%
 ```{r}
 df_GEN %>% 
   summarise(WEIGHT = median(WEIG), a = quantile(bootstrap(B, WEIG, median), 0.025), b = quantile(bootstrap(B, WEIG, median), 0.975)) %>%
-  ggplot(aes(GEN, WEIGHT, ymin = a, ymax = b)) + geom_linerange() + geom_point(aes(fill = "mediana")) + labs(title = "Intervalos de confianza bootstrapeados", subtitle = "percentil = 0.95") + scale_fill_discrete(name = "")
+  ggplot(aes(GEN, WEIGHT, ymin = a, ymax = b)) + geom_linerange() + geom_point(aes(fill = "mediana")) + labs(title = "Intervalos de confianza bootstrapeados con percentil", subtitle = "nivel = 0.95") + scale_fill_discrete(name = "")
 ```
 
 ### (c)
@@ -91,7 +91,7 @@ head(regnopar)
 
 ```{r}
 df_GEN %>%
-  ggplot(aes(WEIG, HEIG)) + geom_point(aes(color = GEN), alpha = 0.2) + geom_line(data = regnopar, aes(x, y, color = GEN)) + labs(title = "Regresión Nadaraya-Watson", subtitle = "bandwidth = 10")
+  ggplot(aes(WEIG, HEIG)) + geom_point(aes(color = GEN), alpha = 0.1) + geom_line(data = regnopar, aes(x, y, color = GEN)) + labs(title = "Regresión Nadaraya-Watson", subtitle = "bandwidth = 10")
 ```
 
 ### (e)
@@ -141,5 +141,49 @@ No se ve la curvatura porque tienen valores muy distintos, pero podemos hacer do
 df_GEN %>%
   do(bw.loocv(., WEIG, HEIG, grilla) %>% as.data.frame()) %>%
   ggplot(aes(grilla.h, loglikes)) + geom_point(aes(color = GEN)) + facet_grid(rows = vars(GEN), scales = "free_y")
+```
+
+```{r}
+df %>% filter(GEN == 1) %>%
+  bw.loocv(WEIG, HEIG, grilla) -> regnopar1
+regnopar1 %>% as.data.frame() %>%
+  ggplot(aes(grilla.h, loglikes)) + geom_point(color = "cyan3") +
+  geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
+  labs(title = "Ventana optima para GEN = 1", subtitle = "Leave one out") + scale_fill_discrete(name = "")
+```
+```{r}
+df %>% filter(GEN == 0) %>%
+  bw.loocv(WEIG, HEIG, grilla) -> regnopar0
+regnopar0 %>% as.data.frame() %>%
+  ggplot(aes(grilla.h, loglikes)) + geom_point(color = "coral2") +
+  geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
+  labs(title = "Ventana optima para GEN = 0", subtitle = "Leave one out") + scale_fill_discrete(name = "")
+```
+
+### (f)
+
+Como ksmooth no es dplyr, es muy dificil plotear un ksmooth con bandwidth distinto por GEN. Entonces, separamos el dataset en dos df por GEN.
+
+```{r}
+df %>% filter(GEN == 0) -> df_0
+df %>% filter(GEN == 1) -> df_1
+```
+
+Ahora, ploteamos las regresiones no paramétricas por GEN. Cada una usa su propia ventana óptima.
+
+```{r}
+df_GEN %>%
+  ggplot(aes(WEIG, HEIG)) + geom_point(aes(color = GEN), alpha = 0.1) +
+  geom_line(data = ksmooth(df_0$WEIG, y = df_0$HEIG, bandwidth = regnopar0$h.CV, kernel = "normal") %>% as.data.frame(), aes(x, y), color = "coral2") +
+  geom_line(data = ksmooth(df_1$WEIG, y = df_1$HEIG, bandwidth = regnopar1$h.CV, kernel = "normal") %>% as.data.frame(), aes(x, y), color = "cyan3") +
+  geom_smooth(data = df_GEN, method='lm', aes(color = GEN), se = FALSE, linetype = "dashed") + 
+  labs(title = "Nadaraya-Watson vs. Cuadrados mínimos", subtitle = "ventana óptima para c/GEN")
+```
+
+## Regresión lineal
+### (g)
+
+```{r}
+df
 ```
 
