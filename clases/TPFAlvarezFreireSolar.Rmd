@@ -8,7 +8,6 @@ output: html_document
 ```{r}
 library(tidyverse)
 library(readxl)
-library(caret)
 ```
 
 ## Lectura de datos
@@ -151,6 +150,8 @@ regnopar1 %>% as.data.frame() %>%
   geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
   labs(title = "Ventana optima para GEN = 1", subtitle = "Leave one out") + scale_fill_discrete(name = "")
 ```
+De acá rescatamos a la ventana óptima para GEN masculino: `r regnopar1$grilla.h[which.max(regnopar1$loglikes)]`
+
 ```{r}
 df %>% filter(GEN == 0) %>%
   bw.loocv(WEIG, HEIG, grilla) -> regnopar0
@@ -159,6 +160,8 @@ regnopar0 %>% as.data.frame() %>%
   geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
   labs(title = "Ventana optima para GEN = 0", subtitle = "Leave one out") + scale_fill_discrete(name = "")
 ```
+
+Lo mismo, pero para GEN femenino: `r regnopar0$grilla.h[which.max(regnopar0$loglikes)]`
 
 ### (f)
 
@@ -195,7 +198,9 @@ print(c('train' = nrow(df_train), 'test' = nrow(df_test)))
 
 ```{r}
 lmtodos <- lm(WEIG ~ ., df_train)
-summary(lmtodos)
+summarytodos <- summary(lmtodos)
+colnames(summarytodos$coefficients) <- c('estimate', 'sd', 't', 'p')
+summarytodos
 ```
 
 ```{r}
@@ -210,3 +215,31 @@ sum((predict(lmtodos, df_test) - df_test$WEIG)^2)
 
 ### (h)
 
+```{r}
+summarytodos$coefficients %>% as.data.frame() %>% ggplot(aes(1, p)) + geom_label(label = rownames(summarytodos$coefficients))
+```
+
+```{r}
+summarytodos$coefficients %>% as.data.frame() %>% ggplot(aes(1, p)) + geom_label(label = rownames(summarytodos$coefficients)) + ylim(0, 0.05)
+```
+
+#### Multicolinealidad
+
+```{r}
+coefbuenos <- summarytodos$coefficients[summarytodos$coefficients[,'p'] < 0.01, 'estimate']
+colbuenas <- names(coefbuenos[2:(length(coefbuenos)-1)])
+df_bueno <- df[colbuenas]
+```
+
+```{r}
+heatmap(cor(df_bueno))
+```
+
+Para verificar multicolinealidad analizamos el rango de la matriz de correlacion.
+
+```{r}
+eigbueno <- eigen(cor(df_bueno))
+eigbueno
+```
+
+Los últimos 4 autovalores son cercanos a 0, lo que indica que hay multicolinealidad en los autovectores correspondientes. Por ejemplo: el autovalor `r round(eigbueno$values[length(colbuenas)], 3)` tiene un autovector con valores altos para `r colbuenas[eigbueno$vectors[,10] > 0.05]`, quiere decir que se pueden combinar linealmente estas variables sin añadirle varianza al modelo.
