@@ -204,7 +204,7 @@ summarytodos
 ```
 
 ```{r}
-df$GEN <- as.numeric(df$GEN)
+df$GEN <- as.numeric(df$GEN) - 1
 heatmap(cor(df))
 ```
 Calculamos el error de predicción empírico para el conjunto de testeo.
@@ -243,3 +243,49 @@ eigbueno
 ```
 
 Los últimos 4 autovalores son cercanos a 0, lo que indica que hay multicolinealidad en los autovectores correspondientes. Por ejemplo: el autovalor `r round(eigbueno$values[length(colbuenas)], 3)` tiene un autovector con valores altos para `r colbuenas[eigbueno$vectors[,10] > 0.05]`, quiere decir que se pueden combinar linealmente estas variables sin añadirle varianza al modelo.
+
+## (i)
+
+```{r}
+library(glmnet)
+```
+
+Ahora usamos regularización de LASSO para quedarnos con un subconjunto de variables. Nos interesa ver cómo difiere la selección con este método basado en optimización con la que hicimos nosotros ad hoc.
+
+```{r}
+lassofit <- glmnet(as.matrix(df_train[,colnames(df_train) != "WEIG"]), as.matrix(df_train[,"WEIG"]))
+lassofit
+```
+
+```{r}
+plot(lassofit, xvar = "lambda")
+```
+
+## (j)
+
+```{r}
+lassocv <- cv.glmnet(as.matrix(df_train[,colnames(df_train) != "WEIG"]), as.matrix(df_train[,"WEIG"]))
+```
+
+```{r}
+coef(lassofit, s = lassocv$lambda.1se)
+```
+
+Error para modelo lineal de todas las variables
+
+```{r}
+sum((predict(lmtodos, df_test) - df_test$WEIG)^2)
+```
+
+Error para lambda 1se
+
+```{r}
+sum((predict(lassofit, as.matrix(df_test[,colnames(df_test) != "WEIG"]), s = lassocv$lambda.1se) - df_test$WEIG)^2)
+```
+
+Error para lambda min
+
+```{r}
+sum((predict(lassofit, as.matrix(df_test[,colnames(df_test) != "WEIG"]), s = lassocv$lambda.min) - df_test$WEIG)^2)
+```
+
