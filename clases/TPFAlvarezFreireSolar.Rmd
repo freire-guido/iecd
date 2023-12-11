@@ -228,10 +228,11 @@ summarytodos$coefficients %>% as.data.frame() %>% ggplot(aes(1, p)) + geom_label
 ```{r}
 coefbuenos <- summarytodos$coefficients[summarytodos$coefficients[,'p'] < 0.01, 'estimate']
 colbuenas <- names(coefbuenos[2:(length(coefbuenos)-1)])
-df_bueno <- df[colbuenas]
+colbuenas
 ```
 
 ```{r}
+df_bueno <- df[colbuenas]
 heatmap(cor(df_bueno))
 ```
 
@@ -242,7 +243,25 @@ eigbueno <- eigen(cor(df_bueno))
 eigbueno
 ```
 
-Los últimos 4 autovalores son cercanos a 0, lo que indica que hay multicolinealidad en los autovectores correspondientes. Por ejemplo: el autovalor `r round(eigbueno$values[length(colbuenas)], 3)` tiene un autovector con valores altos para `r colbuenas[eigbueno$vectors[,10] > 0.05]`, quiere decir que se pueden combinar linealmente estas variables sin añadirle varianza al modelo.
+Los últimos 4 autovalores son cercanos a 0, lo que indica que hay multicolinealidad en los autovectores correspondientes. Por ejemplo: el autovalor `r round(eigbueno$values[length(colbuenas)], 3)` tiene un autovector con valores altos para `r colbuenas[eigbueno$vectors[,10] > 0.05]`, quiere decir que se pueden combinar linealmente estas variables sin añadirle varianza al modelo. Teniendo esto en cuenta, seleccionamos variables sin multicolinealidad.
+
+```{r}
+colbuenas <- c("CHEST1", "KNEE", "GLUTE", "CALF", "AGE", "HEIG")
+df_bueno <- df[colbuenas]
+heatmap(cor(df_bueno))
+```
+
+```{r}
+eigen(cor(df_bueno))
+```
+
+Ajustamos un modelo lineal con nuestra selección de variables con baja colinealidad.
+
+```{r}
+lmbueno <- lm(WEIG ~ AGE + GLUTE + HEIG + CHEST1 + CALF + KNEE, df_train)
+summarybueno <- summary(lmbueno)
+summarybueno
+```
 
 ## (i)
 
@@ -276,6 +295,13 @@ Error para modelo lineal de todas las variables
 ```{r}
 sum((predict(lmtodos, df_test) - df_test$WEIG)^2)
 ```
+
+Error para modelo lineal con variables ad hoc
+
+```{r}
+sum((predict(lmbueno, df_test) - df_test$WEIG)^2)
+```
+
 
 Error para lambda 1se
 
