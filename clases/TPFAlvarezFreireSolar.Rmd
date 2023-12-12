@@ -79,6 +79,8 @@ df_GEN %>%
 df_GEN %>% ggplot(aes(WEIG, HEIG)) + geom_point(aes(color = GEN))
 ```
 
+Este gráfico nos sugiere que existe una relación positiva entre WEIG y HEIG, es decir, a mayor WEIG, mayor HEIG en general, con algunas excepciones.
+
 ### (d)
 
 Ajustamos la regresión no paramétrica para cada GEN usando ksmooth.
@@ -92,6 +94,8 @@ head(regnopar)
 df_GEN %>%
   ggplot(aes(WEIG, HEIG)) + geom_point(aes(color = GEN), alpha = 0.1) + geom_line(data = regnopar, aes(x, y, color = GEN)) + labs(title = "Regresión Nadaraya-Watson", subtitle = "bandwidth = 10")
 ```
+
+A partir de los graficos, sospechamos que la relacion es no lineal pero creciente en el caso del genero 1 (masculino), mientras que para el genero 0 la curva obtenida no es monotona, siendo creciente en algunos intervalos y decreciente en otros. Esto posiblemente se deba a que GEN 0 parece tener la mayor cantidad de datos con valores relativamente bajos de WEIG y HEIG, mientras que los de GEN 1 estan mas dispersos.
 
 ### (e)
 
@@ -150,6 +154,7 @@ regnopar1 %>% as.data.frame() %>%
   geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
   labs(title = "Ventana optima para GEN = 1", subtitle = "Leave one out") + scale_fill_discrete(name = "")
 ```
+
 De acá rescatamos a la ventana óptima para GEN masculino: `r regnopar1$grilla.h[which.max(regnopar1$loglikes)]`
 
 ```{r}
@@ -183,13 +188,17 @@ df_GEN %>%
   labs(title = "Nadaraya-Watson vs. Cuadrados mínimos", subtitle = "ventana óptima para c/GEN")
 ```
 
+Al comparar ambos modelos, preferimos el modelo de Nadaraya-Watson. Nad-watson resulta más firme frente a los outliers, y también vemos que cumple con una de las hipótesis que teníamos, que era que a mayor altura mayor peso (independientemente del género de la persona).
+Concluimos que Nad-watson es el mejor modelo a la hora de ajustar
+
+
 ## Regresión lineal
 ### (g)
 
 Separamos el df en train y test.
 
 ```{r}
-train <- as.vector(read.table('TrainTest')$V1)
+train <- as.vector(read.table('TrainTest.txt')$V1)
 df_train <- df[train,]
 df_test <- df[!train,]
 
@@ -263,6 +272,8 @@ summarybueno <- summary(lmbueno)
 summarybueno
 ```
 
+Comparando los modelos, observamos por una parte que el R^2 disminuyó aproximadamente en 0.1, tanto el global como el ajustado, y el error estándar aumentó en 2. Por una parte, esto nos dice que nuestro modelo con las variables que elegimos parece tener menor poder explicativo. El aumento del error estándar nos dice que este modelo tiene más error intrínseco (el error de medición del modelo lineal), aunque también es probable que quede menos pegado a los datos (menos sesgado). Por último, nuestro modelo tiene todas las variables muy significativas, salvo AGE, que es significativa a nivel 0.05.
+
 ## (i)
 
 ```{r}
@@ -279,6 +290,8 @@ lassofit
 ```{r}
 plot(lassofit, xvar = "lambda")
 ```
+
+En el gráfico, podemos observar que al incrementar el valor de lambda, eventualmente todos los coeficientes terminan siendo 0, es decir, terminan siendo penalizados. Contrastando con lo que observamos en la columna %Dev, que nos permite comparar con un modelo que tiene solo intercept, vemos que a medida que crece lambda, el modelo que tiene solo intercept va quedando atrás respecto al modelo que incorpora nuevas variables. Por lo que deberíamos elegir un lambda adecuado que nos permita explicar el fenómeno, pero a la vez no penalice a todas las variables.
 
 ## (j)
 
@@ -315,3 +328,10 @@ Error para lambda min
 sum((predict(lassofit, as.matrix(df_test[,colnames(df_test) != "WEIG"]), s = lassocv$lambda.min) - df_test$WEIG)^2)
 ```
 
+Podemos ver que este modelo utiliza las variables CHEST1, CHEST2, KNEE, SHOUL, CHESTG, WAISTG, HIP, GLUTE, BICEP, FLOREA, KNEEG, CALF, HEIG. En general, los coeficientes son menores que los que obtuvimos con el modelo del punto g), además de que tenemos más variables explicativas. Comparando los errores de predicción, vemos que el modelo ajustado con LASSO con regla de un desvió estándar tiene el menor error de predicción, por lo que es el modelo que preferimos. 
+
+## (h)
+
+A lo largo del TP estudiamos cómo podemos explicar la altura de una persona (variable HEIG) en base a otras variables explicativas. En un primer momento, nos centramos en la variable WEIG, esto es, el peso. Para eso planteamos regresión de Nadaraya Watson y de mínimos cuadrados, y nos inclinamos por el primer modelo por captar mejor las tendencias observadas y por ser más firme frente a los outliers, esto es, que detecta que valores atípicos de peso no necesariamente se corresponden con mayor altura. 
+
+En una segunda etapa agregamos más variables al modelo. En un primer momento agregamos todas las variables y seleccionamos "a ojo" a partir de dicho modelo, basándonos en el p-valor y en que no haya colinealidad. Posteriormente se ajustaron modelos LASSO para elegir variables explicativas, y comparamos los errores de predicción entre todos los modelos, eligiendo finalmente el modelo LASSO con regla de un desvío estándar.
