@@ -113,13 +113,13 @@ bw.loocv = function(df, x, y, grilla.h = NA, K = dnorm) {
   f <- matrix(NA, n, length(grilla.h))
   for (i in 1:n) {
     for (h in 1:length(grilla.h)) {
-      f[i, h] <- sum(y%*%K((x[i] - x)/grilla.h[h]))
+      f[i, h] <- y%*%K((x[i] - x)/grilla.h[h])
       f[i, h] <- f[i,h] - y[i] * K(0)
-      f[i, h] <- f[i, h] / (sum(K((x[i] - x)/grilla.h[h])) - K(0))
+      f[i, h] <- f[i,h] / (sum(K((x[i] - x)/grilla.h[h])) - K(0))
     }
   }
-  loglikes = colMeans(log(f))
-  return(list("h.CV" = grilla.h[which.max(loglikes)], "grilla.h" = grilla.h, "loglikes" = loglikes))
+  ecm = colMeans((y - f)^2)
+  return(list("h.CV" = grilla.h[which.min(ecm)], "grilla.h" = grilla.h, "ecm" = ecm))
 }
 ```
 
@@ -135,7 +135,7 @@ Ploteamos:
 ```{r}
 df_GEN %>%
   do(bw.loocv(., WEIG, HEIG, grilla) %>% as.data.frame()) %>%
-  ggplot(aes(grilla.h, loglikes)) + geom_point(aes(color = GEN))
+  ggplot(aes(grilla.h, ecm)) + geom_point(aes(color = GEN))
 ```
 
 No se ve la curvatura porque tienen valores muy distintos, pero podemos hacer dos graficos distintos
@@ -143,15 +143,15 @@ No se ve la curvatura porque tienen valores muy distintos, pero podemos hacer do
 ```{r}
 df_GEN %>%
   do(bw.loocv(., WEIG, HEIG, grilla) %>% as.data.frame()) %>%
-  ggplot(aes(grilla.h, loglikes)) + geom_point(aes(color = GEN)) + facet_grid(rows = vars(GEN), scales = "free_y")
+  ggplot(aes(grilla.h, ecm)) + geom_point(aes(color = GEN)) + facet_grid(rows = vars(GEN), scales = "free_y")
 ```
 
 ```{r}
 df %>% filter(GEN == 1) %>%
   bw.loocv(WEIG, HEIG, grilla) -> regnopar1
 regnopar1 %>% as.data.frame() %>%
-  ggplot(aes(grilla.h, loglikes)) + geom_point(color = "cyan3") +
-  geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
+  ggplot(aes(grilla.h, ecm)) + geom_point(color = "cyan3") +
+  geom_vline(aes(xintercept = h.CV)) +
   labs(title = "Ventana optima para GEN = 1", subtitle = "Leave one out") + scale_fill_discrete(name = "")
 ```
 
@@ -161,8 +161,8 @@ De acá rescatamos a la ventana óptima para GEN masculino: `r regnopar1$grilla.
 df %>% filter(GEN == 0) %>%
   bw.loocv(WEIG, HEIG, grilla) -> regnopar0
 regnopar0 %>% as.data.frame() %>%
-  ggplot(aes(grilla.h, loglikes)) + geom_point(color = "coral2") +
-  geom_vline(aes(xintercept = grilla.h[which.max(loglikes)])) +
+  ggplot(aes(grilla.h, ecm)) + geom_point(color = "coral2") +
+  geom_vline(aes(xintercept = h.CV)) +
   labs(title = "Ventana optima para GEN = 0", subtitle = "Leave one out") + scale_fill_discrete(name = "")
 ```
 
@@ -198,7 +198,7 @@ Concluimos que Nad-watson es el mejor modelo a la hora de ajustar
 Separamos el df en train y test.
 
 ```{r}
-train <- as.vector(read.table('TrainTest.txt')$V1)
+train <- as.vector(read.table('TrainTest')$V1)
 df_train <- df[train,]
 df_test <- df[!train,]
 
