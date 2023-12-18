@@ -62,7 +62,8 @@ Bootstrapeamos y graficamos los intervalos:
 ```{r}
 B = 5000
 df_GEN %>%
-  summarise(WEIGHT = median(WEIG), s = (length(WEIG)-1)*sd(bootstrap(B, WEIG, median))/length(WEIG)) %>%
+  # Usamos (length(WEIG) - 1) * sd / length(WEIG) para usar el sesgado
+  summarise(WEIGHT = median(WEIG), s = 1.96*sqrt((B-1)/B)*sd(bootstrap(B, WEIG, median))) %>%
   ggplot(aes(GEN, WEIGHT, s, ymin = WEIGHT-s, ymax = WEIGHT+s)) + geom_linerange() + geom_point(aes(fill = "mediana")) + labs(title = "Intervalos de confianza con bootstrap uniforme", subtitle = "nivel = 0.95") + scale_fill_discrete(name = "")
 ```
 
