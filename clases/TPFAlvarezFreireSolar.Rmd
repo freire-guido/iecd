@@ -199,7 +199,7 @@ Concluimos que Nad-watson es el mejor modelo a la hora de ajustar
 Separamos el df en train y test.
 
 ```{r}
-train <- as.vector(read.table('TrainTest')$V1)
+train <- as.vector(read.table('TrainTest.txt')$V1)
 df_train <- df[train,]
 df_test <- df[!train,]
 
